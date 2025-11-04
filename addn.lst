@@ -1,0 +1,33 @@
+00000            ADDN    START   0    
+00000                    EXTREF  SINIT,SPUSH,SPOP,STKP    
+00000  4B100000         +JSUB    SINIT    
+00004  010004            LDA     #4    
+00007  4B2003            JSUB    RSUM    
+                  
+0000A  3F2FFD    HALT    J       HALT    
+                  
+                  
+                  . REKURZIVNA RUTINA, ARGUMENT IN REZ V A
+                  
+0000D  16100000  RSUM   +STL     @STKP    
+00011  4B100000         +JSUB    SPUSH    
+00015  7A100000         +STB     @STKP    
+00019  4B100000         +JSUB    SPUSH    
+                  
+                  
+0001D  290002            COMP    #2    
+00020  3B200A            JLT     RSUMEX    
+00023  AC03              RMO     A,B    
+00025  1D0001            SUB     #1    
+00028  4B2FE2            JSUB    RSUM    
+0002B  9030              ADDR    B,A    
+                  
+                  
+0002D  4B100000  RSUMEX  +JSUB    SPOP    
+00031  6A100000         +LDB     @STKP    
+00035  4B100000         +JSUB    SPOP    
+00039  0A100000         +LDL     @STKP    
+0003D  4F0000            RSUB        
+                  
+                  
+00040                    END     ADDN    

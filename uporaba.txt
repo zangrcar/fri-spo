@@ -1,0 +1,3 @@
+za več programov naložit:
+java -cp sictools.jar sic.Link -o program -m ADDN addn.obj stack.obj
+glej učilnico

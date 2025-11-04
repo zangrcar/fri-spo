@@ -1,0 +1,33 @@
+00000            STACK  EXTDEF  SINIT,SPUSH,SPOP,STKP    
+                  
+                  
+                  . rutine za sklad
+                  
+00000  0F0BEF    SINIT  STA     TEMP    . inicializira stkp
+00003  01100037        +LDA     #STK    
+00007  0F202A           STA     STKP    
+0000A  030BEF           LDA     TEMP    
+0000D  4F0000           RSUB        
+                  
+00010  0F0BEF    SPUSH  STA     TEMP    . poveca stkp za 3
+00013  03201E           LDA     STKP    
+00016  190003           ADD     #3    
+00019  0F2018           STA     STKP    
+0001C  030BEF           LDA     TEMP    
+0001F  4F0000           RSUB        
+                  
+00022  0F0BEF    SPOP   STA     TEMP    . zmanjsa stkp za 3
+00025  03200C           LDA     STKP    
+00028  1D0003           SUB     #3    
+0002B  0F2006           STA     STKP    
+0002E  030BEF           LDA     TEMP    
+00031  4F0000           RSUB        
+                  
+                  
+                  
+                  . podatki za sklad
+00034  000000    STKP   WORD    0    
+00037  00....00  STK    RESW    1000    
+00BEF  000000    TEMP   RESW    1    . temp za odlaganje vrednosti registrov
+                  
+00BF2                   END     STACK    
