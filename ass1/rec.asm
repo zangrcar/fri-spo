@@ -7,9 +7,17 @@ LOOP    JSUB READ   . reads the value
         LDT #7
         COMPR T, S
         JEQ HALT    . if value is 0 (signaling EOF) end programme
-        . JSUB CALC   . else calculate value
+        LDA NUM     . parameter for recursive function will be in A
+        JSUB CALC   . else calculate value
+        STA NUM     . result is stored in reg A
+        JSUB SETL0  . I have a problem if last digit is 0, so I need to set a flag if it is
         JSUB RVRSE  . reverse NUM for easier print
         JSUB WRITE  . and write value
+        LDA LAST0   . check I we need to print extra 0
+        COMP #1
+        JEQ PRINT0
+PNL     JSUB PRNTNL . print new line
+        LDA #0      . reset all set values
         J LOOP      . repeat until 0
 
 
@@ -51,8 +59,48 @@ ENDPRG  LDS #7
 NUM     RESW    1
 
 . rutina za račun
+CALC    STL @STKP
+        JSUB SPUSH
+        STB @STKP
+        JSUB SPUSH
+
+        COMP #2
+        JLT RETCLC
+        RMO A, B
+        SUB #1
+        JSUB CALC
+        MULR B, A
+
+RETCLC  JSUB SPOP
+        LDB @STKP
+        JSUB SPOP
+        LDL @STKP
+        J RET
 
 
+
+. rutina za preverjanje zadnje števke
+SETL0   LDA NUM
+        LDB NUM
+        DIV #10
+        MUL #10
+        SUBR B, A
+        COMP #0
+        JEQ IS0
+NOTL0   LDA #0
+        STA LAST0
+        J RET
+
+IS0     LDA NUM
+        COMP #0
+        JEQ NOTL0   . if the last digit is zero and is the only digit, we do not need to write it!
+        LDA #1
+        STA LAST0
+        J RET
+
+
+. podatek o zadnji cifri: 0 -> zadnja cifra ni 1 -> zadnja cifra je 0
+LAST0   WORD 0
 
 . rutina za obračanje številke
 RVRSE   LDA #0      
@@ -78,9 +126,9 @@ RVSNUM  RESW 1
 
 
 . rutina za izpis
-WRITE   LDA RVSNUM
+WRITE   LDA RVSNUM  . podobno kot obračanje, samo ne shranjujemo ampak izpisujemo števke
         COMP #0
-        JEQ ENDWRT
+        JEQ RET
         LDB RVSNUM
         DIV #10
         MUL #10
@@ -92,10 +140,19 @@ WRITE   LDA RVSNUM
         WD #1
         J WRITE
 
-ENDWRT  LDA #10
+
+. rutina za izpis 0
+PRINT0  LDA #0x30   . ASCII FOR 0
+        WD #1
+        LDA #0
+        STA LAST0
+        J PNL
+
+
+. rutina za izpis \n
+PRNTNL  LDA #10
         WD #1
         J RET
-
 
 . rutine za sklad
 
