@@ -2,7 +2,7 @@
 . zato je dvojni new line med številkami - na linuxu jih baje ni
 
 REC     START 0
-        . JSUB SINIT
+        JSUB SINIT
 LOOP    JSUB READ   . reads the value
         LDT #7
         COMPR T, S
