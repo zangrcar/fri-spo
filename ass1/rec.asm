@@ -4,7 +4,7 @@
 REC     START 0
         JSUB SINIT
 LOOP    JSUB READ   . reads the value
-        LDT #7
+        +LDT #100000
         COMPR T, S
         JEQ HALT    . if value is 0 (signaling EOF) end programme
         LDA NUM     . parameter for recursive function will be in A
@@ -14,10 +14,9 @@ LOOP    JSUB READ   . reads the value
         JSUB RVRSE  . reverse NUM for easier print
         JSUB WRITE  . and write value
         LDA LAST0   . check I we need to print extra 0
-        COMP #1
-        JEQ PRINT0
+        COMP #0
+        JGT PRINT0
 PNL     JSUB PRNTNL . print new line
-        LDA #0      . reset all set values
         J LOOP      . repeat until 0
 
 
@@ -46,12 +45,12 @@ RDLOOP  TD #0xFA
         RMO A, B     
         LDA NUM     
         MUL #10
-        ADDR B, A    . zmnožimo in seštejemo število
+        ADDR B, A   . zmnožimo in seštejemo število
         STA NUM     . shranimo ga nazaj v NUM
         J RDLOOP    . ponovimo
         
 
-ENDPRG  LDS #7
+ENDPRG  +LDS #100000
         RSUB
 
 
@@ -80,27 +79,34 @@ RETCLC  JSUB SPOP
 
 
 . rutina za preverjanje zadnje števke
-SETL0   LDA NUM
-        LDB NUM
+SETL0   LDA #0
+        STA LAST0
+        LDA NUM
+        STA SUBNUM
+LOOPL0  LDA SUBNUM
+        LDB SUBNUM
         DIV #10
         MUL #10
         SUBR B, A
+        LDS #10
+        DIVR S, B
+        STB SUBNUM
         COMP #0
         JEQ IS0
-NOTL0   LDA #0
-        STA LAST0
-        J RET
+NOTL0   J RET
 
 IS0     LDA NUM
         COMP #0
         JEQ NOTL0   . if the last digit is zero and is the only digit, we do not need to write it!
-        LDA #1
+        LDA LAST0
+        ADD #1
         STA LAST0
-        J RET
+        J LOOPL0
 
 
 . podatek o zadnji cifri: 0 -> zadnja cifra ni 1 -> zadnja cifra je 0
 LAST0   WORD 0
+SUBNUM  WORD 0
 
 . rutina za obračanje številke
 RVRSE   LDA #0      
@@ -145,7 +151,11 @@ WRITE   LDA RVSNUM  . podobno kot obračanje, samo ne shranjujemo ampak izpisuje
 PRINT0  LDA #0x30   . ASCII FOR 0
         WD #1
         LDA #0
+        LDA LAST0
+        SUB #1
         STA LAST0
+        COMP #0
+        JGT PRINT0
         J PNL
 
 
@@ -180,7 +190,7 @@ SPOP    STA TEMP     . zmanjsa stkp za 3
 
 .podatki za sklad 
 STKP    WORD 0
-STK     RESW 1000
+STK     RESW 5000
 TEMP    RESW    1   .temp za odlaganje vrednosti registrov
 
         END REC
