@@ -1,6 +1,3 @@
-. windows ma zrd nezga razloga najprej carriage return in potem še newline, 
-. zato je dvojni new line med številkami - na linuxu jih baje ni
-
 REC     START 0
         JSUB SINIT
 LOOP    JSUB READ   . reads the value
