@@ -7,6 +7,8 @@ LOOP    JSUB READ   . reads the value
         +LDT #100000
         COMPR T, S
         JEQ HALT    . if value is 0 (signaling EOF) end programme
+        COMP #10    . avoid double newlines
+        JEQ LOOP
         LDA NUM     . parameter for recursive function will be in A
         JSUB CALC   . else calculate value
         STA NUM     . result is stored in reg A
