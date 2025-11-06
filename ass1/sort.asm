@@ -64,7 +64,7 @@ LEN     WORD    0
 
 SRTNW1  LDA LEN     . če je LEN 0 smo zaključili s sortiranjem
         COMP #0     . če je CURLEN 0 smo zaključili s sortiranjem
-        JEQ HALT
+        JEQ PRNTNL
         STA CURLEN
         JSUB SPOP
         LDB @STKP
@@ -72,10 +72,10 @@ SRTNW1  LDA LEN     . če je LEN 0 smo zaključili s sortiranjem
 LOOP1   LDA CURLEN
         SUB #1
         COMP #0     . če smo imeli samo eno število lahko zaključimo
-        J PRINT1
+        JEQ PRINT1
         STA CURLEN
         JSUB SPOP
-        STA @STKP
+        LDA @STKP
         LDB MINNUM
         COMPR A, B
         JLT ASMALL
@@ -108,7 +108,7 @@ PRINT1  JSUB SETL0  . I have a problem if last digit is 0, so I need to set a fl
 
 SRTNW2  LDA LEN     . če je LEN 0 smo zaključili s sortiranjem
         COMP #0     . če je CURLEN 0 smo zaključili s sortiranjem
-        JEQ HALT
+        JEQ PRNTNL
         STA CURLEN
         +JSUB SPOP2
         +LDB @STKP2
@@ -116,10 +116,10 @@ SRTNW2  LDA LEN     . če je LEN 0 smo zaključili s sortiranjem
 LOOP2   LDA CURLEN
         SUB #1
         COMP #0     . če smo imeli samo eno število lahko zaključimo
-        J PRINT2
+        JEQ PRINT2
         STA CURLEN
         +JSUB SPOP2
-        +STA @STKP2
+        +LDA @STKP2
         LDB MINNUM
         COMPR A, B
         JLT ASMLL2
@@ -254,7 +254,10 @@ PRNTSP  LDA #32
         J RET
 
 
-
+. rutina za izpis \n
+PRNTNL  LDA #10
+        WD #1
+        J HALT
 
 
 
