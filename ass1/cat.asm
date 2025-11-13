@@ -6,7 +6,7 @@ halt    J halt
 beri    RD #0
         WD #1
         LDX #0xA
-        COMPR X, ADD
+        COMPR X, A
         JEQ done
         J beri
 
