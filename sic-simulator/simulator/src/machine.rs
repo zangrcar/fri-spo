@@ -1,36 +1,58 @@
 use crate::devices::{Device, NullDevice, StderrDevice, StdinDevice, StdoutDevice};
-use crate::memory::Memory;
+use crate::memory::{Memory};
+use crate::opcodes::{ADD, ADDF, ADDR, AND, CLEAR, COMP, COMPF, COMPR, DIV, DIVF, DIVR, FIX, FLOAT, HIO, J, JEQ, JGT, JLT, JSUB, LDA, LDB, LDCH, LDF, LDL, LDS, LDT, LDX, LPS, MUL, MULF, MULR, NORM, OR, RD, RMO, RSUB, SHIFTL, SHIFTR, SIO, SSK, STA, STB, STCH, STF, STI, STL, STS, STSW, STT, STX, SUB, SUBF, SUBR, SVC, TD, TIO, TIX, TIXR, WD};
 
 pub const MAX_DEVICES: usize = 256;
 
-pub const REG_A: u32 = 0;
-pub const REG_X: u32 = 1;
-pub const REG_L: u32 = 2;
-pub const REG_B: u32 = 3;
-pub const REG_S: u32 = 4;
-pub const REG_T: u32 = 5;
-pub const REG_F: u32 = 6;
+pub const REG_A: usize = 0;
+pub const REG_X: usize = 1;
+pub const REG_L: usize = 2;
+pub const REG_B: usize = 3;
+pub const REG_S: usize = 4;
+pub const REG_T: usize = 5;
+pub const REG_F: usize = 6;
 
-pub const REG_PC: u32 = 8;
-pub const REG_SW: u32 = 9;
+pub const REG_PC: usize = 8;
+pub const REG_SW: usize = 9;
 
-pub const CC_LT: u32 = 0x00;
-pub const CC_EQ: u32 = 0x40;
-pub const CC_GT: u32 = 0x80;
+pub const CC_LT: usize = 0x00;
+pub const CC_EQ: usize = 0x40;
+pub const CC_GT: usize = 0x80;
 
 #[inline]
-fn mask24(v: u32) -> u32 {
+fn mask24(v: usize) -> usize {
     v & 0x00FFFFFF
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum RegValue {
-    Int(u32),
+    Int(usize),
     Float(f64),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum InstructuionType {
+    F1,
+    F2,
+    OTHER,
+    F3,
+    F4,
+    SIC
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+    InvalidOpcode,
+    InvalidRegister,
+    InvalidAddressing,
+    NotImplemented,
+    InvalidInstruction,
+    MemOutOfRange
+}
+
+
 impl RegValue {
-    fn as_u32(&self) -> u32 {
+    fn as_usize(&self) -> usize {
         match *self {
             RegValue::Int(v) => v,
             _ => 0,
@@ -44,21 +66,16 @@ impl RegValue {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RegError {
-    InvalidRegister,
-}
-
 pub struct Machine {
-    a: u32,
-    x: u32,
-    l: u32,
-    b: u32,
-    s: u32,
-    t: u32,
+    a: usize,
+    x: usize,
+    l: usize,
+    b: usize,
+    s: usize,
+    t: usize,
     f: f64,
-    pc: u32,
-    sw: u32,
+    pc: usize,
+    sw: usize,
 
     pub memory: Memory,
     pub devices: [Box<dyn Device>; MAX_DEVICES],
@@ -89,34 +106,34 @@ impl Machine {
         }
     }
 
-    pub fn get_a(&self) -> u32 { self.a }
-    pub fn set_a(&mut self, v: u32) { self.a = mask24(v); }
+    pub fn get_a(&self) -> usize { self.a }
+    pub fn set_a(&mut self, v: usize) { self.a = mask24(v); }
 
-    pub fn get_x(&self) -> u32 { self.x }
-    pub fn set_x(&mut self, v: u32) { self.x = mask24(v); }
+    pub fn get_x(&self) -> usize { self.x }
+    pub fn set_x(&mut self, v: usize) { self.x = mask24(v); }
 
-    pub fn get_l(&self) -> u32 { self.l }
-    pub fn set_l(&mut self, v: u32) { self.l = mask24(v); }
+    pub fn get_l(&self) -> usize { self.l }
+    pub fn set_l(&mut self, v: usize) { self.l = mask24(v); }
 
-    pub fn get_b(&self) -> u32 { self.b }
-    pub fn set_b(&mut self, v: u32) { self.b = mask24(v); }
+    pub fn get_b(&self) -> usize { self.b }
+    pub fn set_b(&mut self, v: usize) { self.b = mask24(v); }
 
-    pub fn get_s(&self) -> u32 { self.s }
-    pub fn set_s(&mut self, v: u32) { self.s = mask24(v); }
+    pub fn get_s(&self) -> usize { self.s }
+    pub fn set_s(&mut self, v: usize) { self.s = mask24(v); }
 
-    pub fn get_t(&self) -> u32 { self.t }
-    pub fn set_t(&mut self, v: u32) { self.t = mask24(v); }
+    pub fn get_t(&self) -> usize { self.t }
+    pub fn set_t(&mut self, v: usize) { self.t = mask24(v); }
 
     pub fn get_f(&self) -> f64 { self.f }
     pub fn set_f(&mut self, v: f64) { self.f = v; }
 
-    pub fn get_pc(&self) -> u32 { self.pc }
-    pub fn set_pc(&mut self, v: u32) { self.pc = mask24(v); }
+    pub fn get_pc(&self) -> usize { self.pc }
+    pub fn set_pc(&mut self, v: usize) { self.pc = mask24(v); }
 
-    pub fn get_sw(&self) -> u32 { self.sw }
-    pub fn set_sw(&mut self, v: u32) { self.sw = v & 0xFF; }
+    pub fn get_sw(&self) -> usize { self.sw }
+    pub fn set_sw(&mut self, v: usize) { self.sw = v & 0xFF; }
 
-    pub fn get_reg(&self, reg: u32) -> Result<RegValue, RegError> {
+    pub fn get_reg(&self, reg: usize) -> Result<RegValue, Error> {
         match reg {
             REG_A => Ok(RegValue::Int(self.a)),
             REG_X => Ok(RegValue::Int(self.x)),
@@ -127,22 +144,22 @@ impl Machine {
             REG_F => Ok(RegValue::Float(self.f)),
             REG_PC => Ok(RegValue::Int(self.pc)),
             REG_SW => Ok(RegValue::Int(self.sw)),
-            _ => Err(RegError::InvalidRegister),
+            _ => Err(Error::InvalidRegister),
         }
     }
 
-    pub fn set_reg(&mut self, reg: u32, v: RegValue) -> Result<(), RegError> {
+    pub fn set_reg(&mut self, reg: usize, v: RegValue) -> Result<(), Error> {
         match reg {
-            REG_A => { self.a = mask24(v.as_u32()); Ok(()) },
-            REG_X => { self.x = mask24(v.as_u32()); Ok(()) },
-            REG_L => { self.l = mask24(v.as_u32()); Ok(()) },
-            REG_B => { self.b = mask24(v.as_u32()); Ok(()) },
-            REG_S => { self.s = mask24(v.as_u32()); Ok(()) },
-            REG_T => { self.t = mask24(v.as_u32()); Ok(()) },
+            REG_A => { self.a = mask24(v.as_usize()); Ok(()) },
+            REG_X => { self.x = mask24(v.as_usize()); Ok(()) },
+            REG_L => { self.l = mask24(v.as_usize()); Ok(()) },
+            REG_B => { self.b = mask24(v.as_usize()); Ok(()) },
+            REG_S => { self.s = mask24(v.as_usize()); Ok(()) },
+            REG_T => { self.t = mask24(v.as_usize()); Ok(()) },
             REG_F => { self.f = v.as_f64(); Ok(()) },
-            REG_PC => { self.pc = mask24(v.as_u32()); Ok(()) },
-            REG_SW => { self.sw = mask24(v.as_u32()); Ok(()) },
-            _ => Err(RegError::InvalidRegister),
+            REG_PC => { self.pc = mask24(v.as_usize()); Ok(()) },
+            REG_SW => { self.sw = mask24(v.as_usize()); Ok(()) },
+            _ => Err(Error::InvalidRegister),
         }
     }
 
@@ -154,5 +171,282 @@ impl Machine {
         if num >= MAX_DEVICES { return Err("device index out of range"); }
         self.devices[num] = dev;
         Ok(())
+    }
+
+    pub fn not_implemented(&self, mnemonic: String) {
+        println!("{} is not implemented!", mnemonic);
+    }
+
+    pub fn invalid_opcode(&self, opcode: u8) -> Error {
+        println!("opcode {} is invalid!", opcode);
+        Error::InvalidOpcode
+    }
+
+    pub fn invalid_addressing(&self) {
+        println!("Invalid addressing was used!");
+    }
+
+    pub fn fetch(&mut self) -> Result<u8, Error> {
+        let fetched_byte: u8 = self.memory.get_byte(self.pc)?;
+        Self::set_pc(self,self.pc+1);
+        Ok(fetched_byte)
+    }
+
+    pub fn execute(&mut self) -> Result<(), Error> {
+        let first_byte = self.fetch()?;
+        let instruction_type = self.get_instrution_type1(first_byte)?;
+        
+        match instruction_type {
+            InstructuionType::F1 => self.exec_f1(first_byte),
+            InstructuionType::F2 => {
+                let second_byte = self.fetch()?;
+                let final_instruction = ((first_byte as u32) << 8) | (second_byte as u32);
+                self.exec_f2(final_instruction)
+            },
+            InstructuionType::SIC => {
+                let second_byte = self.fetch()?;
+                let third_byte = self.fetch()?;
+                let final_instruction = ((first_byte as u32) << 16) | ((second_byte as u32) << 8) | (third_byte as u32);
+                self.exec_sic(final_instruction)
+            },
+            InstructuionType::OTHER => {
+                let second_byte = self.fetch()?;
+                let final_instruction_type = self.get_instrution_type2(second_byte)?;
+                match final_instruction_type {
+                    InstructuionType::F3 => {
+                        let third_byte = self.fetch()?;
+                        let final_instruction = 
+                            ((first_byte as u32) << 16) | 
+                            ((second_byte as u32) << 8) | 
+                            (third_byte as u32);
+                        self.exec_f3(final_instruction)
+                    },
+                    InstructuionType::F4 => {
+                        let third_byte = self.fetch()?;
+                        let fourth_byte = self.fetch()?;
+                        let final_instruction = 
+                            ((first_byte as u32) << 24) | 
+                            ((second_byte as u32) << 16) | 
+                            ((third_byte as u32) << 8) |
+                            (fourth_byte as u32);
+                        self.exec_f4(final_instruction)
+                    }
+                    _ => Err(Error::InvalidInstruction)
+                }
+            }
+            _ => Err(Error::InvalidInstruction)
+        }
+    }
+
+    fn exec_f1(&self, code: u8) -> Result<(), Error> {
+        match code {
+            FIX    |
+            FLOAT  |
+            HIO    |
+            NORM   |
+            SIO    |
+            TIO => Err(Error::NotImplemented),
+            _ => Err(Error::InvalidInstruction)
+        }
+    }
+
+    fn exec_f2(&self, code: u32) -> Result<(), Error> {
+        let opcode = ((code >> 8) & 0xFF) as u8;
+        let low = (code & 0xFF) as u8;
+        let reg1 = low >> 4;
+        let reg2 = low & 0x0F;
+        match opcode {
+            ADDR   |
+            CLEAR  |
+            COMPR  |
+            DIVR   |
+            MULR   |
+            RMO    |
+            SHIFTL |
+            SHIFTR |
+            SUBR   |
+            SVC    |
+            TIXR => Err(Error::NotImplemented),
+            _ => Err(Error::InvalidInstruction)
+        }
+    }
+
+    fn exec_f3(&self, code: u32) -> Result<(), Error> {
+        let opcode = ((code >> 16) as u8) & 0xFC; 
+        let n = ((code >> 17) & 0x1) as u8;
+        let i = ((code >> 16) & 0x1) as u8;
+        let x = ((code >> 15) & 0x1) as u8;
+        let b = ((code >> 14) & 0x1) as u8;
+        let p = ((code >> 13) & 0x1) as u8;
+        let mut address = (code & 0xFFF) as i32;
+
+        // pc relative addressing is signed
+        if p == 1 {
+            if (address & 0x800) != 0 {
+                address |= !0xFFF;
+            }
+        }
+
+        // only add x reg if it is not direct addressing
+        if x == 1 && !(n == 0 && i == 1) {
+            address += self.get_x() as i32;
+        }
+
+        if b + p == 2 {
+            return Err(Error::InvalidAddressing)
+        } else if b == 1 {
+            address += self.get_b() as i32;
+        } else if p == 1 {
+            address += self.get_pc() as i32;
+        }
+
+        let value = if n + i == 2 {
+            self.memory.get_word(address as usize)?
+        } else if n == 1 {
+            let indirect = self.memory.get_word(address as usize)? as usize;
+            self.memory.get_word(indirect)?
+        } else {
+            address as u32
+        };
+        Ok(())
+    }
+
+    fn exec_f4(&self, code: u32) -> Result<(), Error> {
+        let opcode = ((code >> 24) as u8) & 0xFC; 
+        let n = ((code >> 25) & 0x1) as u8;
+        let i = ((code >> 24) & 0x1) as u8;
+        let x = ((code >> 23) & 0x1) as u8;
+        let mut address = code & 0xFFFFF;
+
+        // do not add x for immidiate addressing
+        if x == 1 && !(n == 0 && i == 1) {
+            address += self.get_x() as u32;
+        }
+
+        let value = if n + i == 2 {
+            self.memory.get_word(address as usize)?
+        } else if n == 1 {
+            let indirect = self.memory.get_word(address as usize)? as usize;
+            self.memory.get_word(indirect)?
+        } else {
+            address
+        };
+        Ok(())
+    }
+
+    fn exec_sic(&self, code: u32) -> Result<(), Error> {
+        let opcode = ((code >> 16) & 0xFF) as u8;
+        let x = ((code >> 15) & 0x1) as u8;
+        let address = (code & 0x7FFF) + (if x == 1 { self.get_x() as u32} else {0});
+        match opcode {
+            ADD    |
+            AND    |
+            COMP   |
+            DIV    |
+            J      |
+            JEQ    |
+            JGT    |
+            JLT    |
+            JSUB   |
+            LDA    |
+            LDCH   |
+            LDL    |
+            LDS    |
+            LDT    |
+            LDX    |
+            MUL    |
+            OR     |
+            RD     |
+            RSUB   |
+            STA    |
+            STCH   |
+            STL    |
+            STSW   |
+            STX    |
+            SUB    |
+            TD     |
+            TIX    |
+            WD => Err(Error::NotImplemented),
+            _ => Err(Error::InvalidInstruction)
+        }
+    }
+
+    fn get_instrution_type1(&self, opcode: u8) -> Result<InstructuionType, Error> {
+        match opcode {
+            FIX    |
+            FLOAT  |
+            HIO    |
+            NORM   |
+            SIO    |
+            TIO => Ok(InstructuionType::F1),
+            ADDR   |
+            CLEAR  |
+            COMPR  |
+            DIVR   |
+            MULR   |
+            RMO    |
+            SHIFTL |
+            SHIFTR |
+            SUBR   |
+            SVC    |
+            TIXR => Ok(InstructuionType::F2),
+            ADD    |
+            ADDF   |
+            AND    |
+            COMP   |
+            COMPF  |
+            DIV    |
+            DIVF   |
+            J      |
+            JEQ    |
+            JGT    |
+            JLT    |
+            JSUB   |
+            LDA    |
+            LDB    |
+            LDCH   |
+            LDF    |
+            LDL    |
+            LDS    |
+            LDT    |
+            LDX    |
+            LPS    |
+            MUL    |
+            MULF   |
+            OR     |
+            RD     |
+            RSUB   |
+            SSK    |
+            STA    |
+            STB    |
+            STCH   |
+            STF    |
+            STI    |
+            STL    |
+            STS    |
+            STSW   |
+            STT    |
+            STX    |
+            SUB    |
+            SUBF   |
+            TD     |
+            TIX    |
+            WD => {
+                if opcode & 0x3 == 0 {
+                    Ok(InstructuionType::SIC)
+                } else {
+                    Ok(InstructuionType::OTHER)
+                }
+            },
+            _ => Err(self.invalid_opcode(opcode)),
+        }
+    }
+
+    fn get_instrution_type2(&self, second_byte: u8) -> Result<InstructuionType, Error> {
+        if second_byte & 0x10 == 0 {
+            Ok(InstructuionType::F3)
+        } else {
+            Ok(InstructuionType::F4)
+        }
     }
 }

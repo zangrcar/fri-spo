@@ -16,7 +16,6 @@ pub const DIVR:  u8 = 0x9C; // DIVR r1, r2
 
 pub const FIX:   u8 = 0xC4; // FIX
 pub const FLOAT: u8 = 0xC0; // FLOAT
-
 pub const HIO:   u8 = 0xF4; // HIO
 
 pub const J:     u8 = 0x3C; // J m
