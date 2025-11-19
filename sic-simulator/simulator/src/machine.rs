@@ -1,4 +1,6 @@
-use crate::devices::{Device, NullDevice, StderrDevice, StdinDevice, StdoutDevice};
+use std::io;
+
+use crate::devices::{Device, FileDevice, NullDevice, StderrDevice, StdinDevice, StdoutDevice};
 use crate::memory::{Memory};
 use crate::opcodes::{ADD, ADDF, ADDR, AND, CLEAR, COMP, COMPF, COMPR, DIV, DIVF, DIVR, FIX, FLOAT, HIO, J, JEQ, JGT, JLT, JSUB, LDA, LDB, LDCH, LDF, LDL, LDS, LDT, LDX, LPS, MUL, MULF, MULR, NORM, OR, RD, RMO, RSUB, SHIFTL, SHIFTR, SIO, SSK, STA, STB, STCH, STF, STI, STL, STS, STSW, STT, STX, SUB, SUBF, SUBR, SVC, TD, TIO, TIX, TIXR, WD};
 
@@ -49,7 +51,8 @@ pub enum Error {
     InvalidInstruction,
     MemOutOfRange,
     Interrupted,
-    DivideByZero
+    DivideByZero,
+    IoError
 }
 
 
@@ -165,8 +168,18 @@ impl Machine {
         }
     }
 
-    pub fn get_device(&mut self, num: usize) -> Option<&mut (dyn Device + 'static)> {
-        self.devices.get_mut(num).map(|b| b.as_mut())
+    pub fn get_device(&mut self, dev_no: u8) -> io::Result<&mut dyn Device> {
+        let idx = dev_no as usize;
+        if idx < 3 {
+            return Ok(self.devices[idx].as_mut());
+        }
+
+        if self.devices[idx].is_null() {
+            let path = self.dev_filename(dev_no);
+            self.devices[idx] = Box::new(FileDevice::open_rw(&path)?);
+        }
+
+        Ok(self.devices[idx].as_mut())
     }
 
     pub fn set_device(&mut self, num: usize, dev: Box<dyn Device>) -> Result<(), &'static str> {
@@ -297,14 +310,14 @@ impl Machine {
             SHIFTL => {
                 let reg_val1 = self.get_reg(reg1)?.as_usize();
                 let n = reg2 % 24;  // rotating by full width gives the same number
-                let mut value: usize = 0;
-                if n == 0 {
-                    value = reg_val1 & 0x00FF_FFFF;
-                } else {
-                    let left  = (reg_val1 << n) & 0x00FF_FFFF;
-                    let right = (reg_val1 >> (24 - n)) & ((1 << n) - 1);
-                    value = (left | right) & 0x00FF_FFFF;
-                }
+                let value: usize = 
+                    if n == 0 {
+                        reg_val1 & 0x00FF_FFFF
+                    } else {
+                        let left  = (reg_val1 << n) & 0x00FF_FFFF;
+                        let right = (reg_val1 >> (24 - n)) & ((1 << n) - 1);
+                        (left | right) & 0x00FF_FFFF
+                    };
                 // reg2 is in this case n (number of bits to be shifted)
                 self.set_reg(reg1, RegValue::Int(value))?;
                 Ok(())
@@ -336,7 +349,7 @@ impl Machine {
         }
     }
 
-    fn exec_f3(&self, code: u32) -> Result<(), Error> {
+    fn exec_f3(&mut self, code: u32) -> Result<(), Error> {
         let opcode = ((code >> 16) as u8) & 0xFC; 
         let n = ((code >> 17) & 0x1) as u8;
         let i = ((code >> 16) & 0x1) as u8;
@@ -376,7 +389,7 @@ impl Machine {
         self.exec_f3_f4_sic(opcode, address as u32, value)
     }
 
-    fn exec_f4(&self, code: u32) -> Result<(), Error> {
+    fn exec_f4(&mut self, code: u32) -> Result<(), Error> {
         let opcode = ((code >> 24) as u8) & 0xFC; 
         let n = ((code >> 25) & 0x1) as u8;
         let i = ((code >> 24) & 0x1) as u8;
@@ -405,25 +418,10 @@ impl Machine {
         let address = (code & 0x7FFF) + (if x == 1 { self.get_x() as u32} else {0});
         let value = self.memory.get_word(address as usize)?;
         match opcode {
-            ADD => {
-                self.set_a(self.get_a() + value as usize);
-                Ok(())
-            }
-            AND => {
-                self.set_a(self.get_a() & value as usize);
-                Ok(())
-            }
-            COMP => {
-                self.set_cc_from_24(self.get_a() as u32, value);
-                Ok(())
-            }
-            DIV => {
-                if value == 0 {
-                    return Err(Error::DivideByZero);
-                }
-                self.set_a(self.get_a()/(value as usize));
-                Ok(())
-            }
+            ADD    |
+            AND    |
+            COMP   |
+            DIV    |
             J      |
             JEQ    |
             JGT    |
@@ -452,35 +450,122 @@ impl Machine {
         }
     }
 
-    fn exec_f3_f4_sic(&self, opcode: u8, address: u32, value: u32) -> Result<(), Error> {
+    fn exec_f3_f4_sic(&mut self, opcode: u8, address: u32, value: u32) -> Result<(), Error> {
         match opcode {
-            ADD    |
-            ADDF   |
-            AND    |
-            COMP   |
-            COMPF  |
-            DIV    |
-            DIVF   |
-            J      |
-            JEQ    |
-            JGT    |
-            JLT    |
-            JSUB   |
-            LDA    |
-            LDB    |
-            LDCH   |
-            LDF    |
-            LDL    |
-            LDS    |
-            LDT    |
-            LDX    |
-            LPS    |
-            MUL    |
-            MULF   |
-            OR     |
-            RD     |
-            RSUB   |
-            SSK    |
+            ADD => {
+                self.set_a(self.get_a() + value as usize);
+                Ok(())
+            }
+            AND => {
+                self.set_a(self.get_a() & value as usize);
+                Ok(())
+            }
+            COMP => {
+                self.set_cc_from_24(self.get_a() as u32, value);
+                Ok(())
+            }
+            DIV => {
+                if value == 0 {
+                    return Err(Error::DivideByZero);
+                }
+                self.set_a(self.get_a()/(value as usize));
+                Ok(())
+            }
+            J => {
+                self.set_pc(value as usize);
+                Ok(())
+            }
+            JEQ => {
+                if self.get_sw() == CC_EQ {
+                    self.set_pc(value as usize);
+                }
+                Ok(())
+            }
+            JGT => {
+                if self.get_sw() == CC_GT {
+                    self.set_pc(value as usize);
+                }
+                Ok(())
+            }
+            JLT => {
+                if self.get_sw() == CC_LT {
+                    self.set_pc(value as usize);
+                }
+                Ok(())
+            }
+            JSUB => {
+                self.set_l(self.get_pc());
+                self.set_pc(value as usize);
+                Ok(())
+            }
+            LDA => {
+                self.set_a(value as usize);
+                Ok(())
+            }
+            LDB => {
+                self.set_b(value as usize);
+                Ok(())
+            }
+            LDCH => {
+                let a = self.get_a();
+                self.set_a(((a & 0xFFFF00) | ((value as usize) & 0xFF)) as usize);
+                Ok(())
+            }
+            LDL => {
+                self.set_l(value as usize);
+                Ok(())
+            }
+            LDS => {
+                self.set_s(value as usize);
+                Ok(())
+            }
+            LDT => {
+                self.set_t(value as usize);
+                Ok(())
+            }
+            LDX => {
+                self.set_x(value as usize);
+                Ok(())
+            }
+            MUL => {
+                self.set_a(self.get_a() * (value as usize));
+                Ok(())
+            }
+            OR => {
+                self.set_a(self.get_a() | ((value as usize) & 0x00FF_FFFF));
+                Ok(())
+            }
+            RD => {
+                let dev_no = (value & 0xFF) as u8;
+                let dev = self.get_device(dev_no).map_err(|_| Error::IoError)?;
+                let low = dev.read();
+                let a = self.get_a();
+                self.set_a((a & 0xFFFF00) | (low as usize));
+                Ok(())
+            }
+            RSUB => {
+                self.set_pc(self.get_l());
+                Ok(())
+            }
+            SUB => {
+                self.set_a(self.get_a() - value as usize);
+                Ok(())
+            }
+            TD => {
+                let dev = self.get_device((value & 0xFF) as u8).map_err(|_| Error::IoError)?;
+                if dev.test() {
+                    Ok(())
+                } else {
+                    Err(Error::IoError)
+                }
+            }
+            TIX => {
+                self.set_x(self.get_x() + 1);
+                let x_val = self.get_x();
+                self.set_cc_from_24(x_val as u32, value as u32);
+                Ok(())
+            }
+            WD     |
             STA    |
             STB    |
             STCH   |
@@ -491,11 +576,12 @@ impl Machine {
             STSW   |
             STT    |
             STX    |
-            SUB    |
             SUBF   |
-            TD     |
-            TIX    |
-            WD => Err(Error::NotImplemented),
+            ADDF   |
+            COMPF  |
+            LDF    |
+            MULF   |
+            DIVF   => Err(Error::NotImplemented),
             _ => Err(Error::InvalidInstruction)
         }
     }
@@ -594,5 +680,9 @@ impl Machine {
 
     fn sign_extend_24(&self, v: u32) -> i32 {
         ((v << 8) as i32) >> 8
+    }
+
+    fn dev_filename(&self, dev_no: u8) -> String {
+        format!("{:02X}.dev", dev_no)
     }
 }

@@ -7,11 +7,14 @@ pub trait Device: Send {
     fn test(&mut self) -> bool { true }
     fn read(&mut self) -> u8 { 0 }
     fn write(&mut self, _value: u8) {}
+    fn is_null(&self) -> bool { false }
 }
 
 #[derive(Default)]
 pub struct NullDevice;
-impl Device for NullDevice {}
+impl Device for NullDevice {
+    fn is_null(&self) -> bool { true }
+}
 
 
 #[derive(Default)]
