@@ -47,7 +47,9 @@ pub enum Error {
     InvalidAddressing,
     NotImplemented,
     InvalidInstruction,
-    MemOutOfRange
+    MemOutOfRange,
+    Interrupted,
+    DivideByZero
 }
 
 
@@ -135,15 +137,15 @@ impl Machine {
 
     pub fn get_reg(&self, reg: usize) -> Result<RegValue, Error> {
         match reg {
-            REG_A => Ok(RegValue::Int(self.a)),
-            REG_X => Ok(RegValue::Int(self.x)),
-            REG_L => Ok(RegValue::Int(self.l)),
-            REG_B => Ok(RegValue::Int(self.b)),
-            REG_S => Ok(RegValue::Int(self.s)),
-            REG_T => Ok(RegValue::Int(self.t)),
+            REG_A => Ok(RegValue::Int(mask24(self.a))),
+            REG_X => Ok(RegValue::Int(mask24(self.x))),
+            REG_L => Ok(RegValue::Int(mask24(self.l))),
+            REG_B => Ok(RegValue::Int(mask24(self.b))),
+            REG_S => Ok(RegValue::Int(mask24(self.s))),
+            REG_T => Ok(RegValue::Int(mask24(self.t))),
             REG_F => Ok(RegValue::Float(self.f)),
-            REG_PC => Ok(RegValue::Int(self.pc)),
-            REG_SW => Ok(RegValue::Int(self.sw)),
+            REG_PC => Ok(RegValue::Int(mask24(self.pc))),
+            REG_SW => Ok(RegValue::Int(mask24(self.sw))),
             _ => Err(Error::InvalidRegister),
         }
     }
@@ -250,23 +252,86 @@ impl Machine {
         }
     }
 
-    fn exec_f2(&self, code: u32) -> Result<(), Error> {
+    fn exec_f2(&mut self, code: u32) -> Result<(), Error> {
         let opcode = ((code >> 8) & 0xFF) as u8;
         let low = (code & 0xFF) as u8;
-        let reg1 = low >> 4;
-        let reg2 = low & 0x0F;
+        let reg1 = (low >> 4) as usize;
+        let reg2 = (low & 0x0F) as usize;
         match opcode {
-            ADDR   |
-            CLEAR  |
-            COMPR  |
-            DIVR   |
-            MULR   |
-            RMO    |
-            SHIFTL |
-            SHIFTR |
-            SUBR   |
-            SVC    |
-            TIXR => Err(Error::NotImplemented),
+            ADDR => {
+                let reg_val1 = self.get_reg(reg1)?.as_usize();
+                let reg_val2 = self.get_reg(reg2)?.as_usize();
+                self.set_reg(reg2, RegValue::Int(reg_val1 + reg_val2))?;
+                Ok(())
+            }
+            CLEAR => {
+                self.set_reg(reg1, RegValue::Int(0))?;
+                Ok(())
+            }
+            COMPR => {
+                let reg_val1 = self.get_reg(reg1)?.as_usize();
+                let reg_val2 = self.get_reg(reg2)?.as_usize();
+                self.set_cc_from_24(reg_val1 as u32, reg_val2 as u32);
+                Ok(())
+            }
+            DIVR => {
+                let reg_val1 = self.get_reg(reg1)?.as_usize();
+                let reg_val2 = self.get_reg(reg2)?.as_usize();
+                if reg_val1 == 0 {
+                    return Err(Error::DivideByZero);
+                }
+                self.set_reg(reg2, RegValue::Int(reg_val2/reg_val1))?;
+                Ok(())
+            }
+            MULR => {
+                let reg_val1 = self.get_reg(reg1)?.as_usize();
+                let reg_val2 = self.get_reg(reg2)?.as_usize();
+                self.set_reg(reg2, RegValue::Int(reg_val2*reg_val1))?;
+                Ok(())
+            }
+            RMO => {
+                let reg_val1 = self.get_reg(reg1)?.as_usize();
+                self.set_reg(reg2, RegValue::Int(reg_val1))?;
+                Ok(())
+            }
+            SHIFTL => {
+                let reg_val1 = self.get_reg(reg1)?.as_usize();
+                let n = reg2 % 24;  // rotating by full width gives the same number
+                let mut value: usize = 0;
+                if n == 0 {
+                    value = reg_val1 & 0x00FF_FFFF;
+                } else {
+                    let left  = (reg_val1 << n) & 0x00FF_FFFF;
+                    let right = (reg_val1 >> (24 - n)) & ((1 << n) - 1);
+                    value = (left | right) & 0x00FF_FFFF;
+                }
+                // reg2 is in this case n (number of bits to be shifted)
+                self.set_reg(reg1, RegValue::Int(value))?;
+                Ok(())
+            }
+            SHIFTR => {
+                let reg_val1 = self.get_reg(reg1)?.as_usize();
+                // mimic arithmetic shift (signed)
+                let signed = self.sign_extend_24(reg_val1 as u32);
+                let shifted = signed >> reg2;
+                // reg2 is in this case n (number of bits to be shifted)
+                self.set_reg(reg1, RegValue::Int((shifted as usize) & 0x00FF_FFFF))?;
+                Ok(())
+            }
+            SUBR => {
+                let reg_val1 = self.get_reg(reg1)?.as_usize();
+                let reg_val2 = self.get_reg(reg2)?.as_usize();
+                self.set_reg(reg2, RegValue::Int(reg_val2-reg_val1))?;
+                Ok(())
+            }
+            SVC  => Err(Error::Interrupted),
+            TIXR => {
+                let reg_val = self.get_reg(reg1)?.as_usize();
+                self.set_x(self.get_x() + 1);
+                let x_val = self.get_x();
+                self.set_cc_from_24(x_val as u32, reg_val as u32);
+                Ok(())
+            }
             _ => Err(Error::InvalidInstruction)
         }
     }
@@ -308,7 +373,7 @@ impl Machine {
         } else {
             address as u32
         };
-        Ok(())
+        self.exec_f3_f4_sic(opcode, address as u32, value)
     }
 
     fn exec_f4(&self, code: u32) -> Result<(), Error> {
@@ -331,18 +396,34 @@ impl Machine {
         } else {
             address
         };
-        Ok(())
+        self.exec_f3_f4_sic(opcode, address, value)
     }
 
-    fn exec_sic(&self, code: u32) -> Result<(), Error> {
+    fn exec_sic(&mut self, code: u32) -> Result<(), Error> {
         let opcode = ((code >> 16) & 0xFF) as u8;
         let x = ((code >> 15) & 0x1) as u8;
         let address = (code & 0x7FFF) + (if x == 1 { self.get_x() as u32} else {0});
+        let value = self.memory.get_word(address as usize)?;
         match opcode {
-            ADD    |
-            AND    |
-            COMP   |
-            DIV    |
+            ADD => {
+                self.set_a(self.get_a() + value as usize);
+                Ok(())
+            }
+            AND => {
+                self.set_a(self.get_a() & value as usize);
+                Ok(())
+            }
+            COMP => {
+                self.set_cc_from_24(self.get_a() as u32, value);
+                Ok(())
+            }
+            DIV => {
+                if value == 0 {
+                    return Err(Error::DivideByZero);
+                }
+                self.set_a(self.get_a()/(value as usize));
+                Ok(())
+            }
             J      |
             JEQ    |
             JGT    |
@@ -364,6 +445,54 @@ impl Machine {
             STSW   |
             STX    |
             SUB    |
+            TD     |
+            TIX    |
+            WD => self.exec_f3_f4_sic(opcode, address, value),
+            _ => Err(Error::InvalidInstruction)
+        }
+    }
+
+    fn exec_f3_f4_sic(&self, opcode: u8, address: u32, value: u32) -> Result<(), Error> {
+        match opcode {
+            ADD    |
+            ADDF   |
+            AND    |
+            COMP   |
+            COMPF  |
+            DIV    |
+            DIVF   |
+            J      |
+            JEQ    |
+            JGT    |
+            JLT    |
+            JSUB   |
+            LDA    |
+            LDB    |
+            LDCH   |
+            LDF    |
+            LDL    |
+            LDS    |
+            LDT    |
+            LDX    |
+            LPS    |
+            MUL    |
+            MULF   |
+            OR     |
+            RD     |
+            RSUB   |
+            SSK    |
+            STA    |
+            STB    |
+            STCH   |
+            STF    |
+            STI    |
+            STL    |
+            STS    |
+            STSW   |
+            STT    |
+            STX    |
+            SUB    |
+            SUBF   |
             TD     |
             TIX    |
             WD => Err(Error::NotImplemented),
@@ -448,5 +577,22 @@ impl Machine {
         } else {
             Ok(InstructuionType::F4)
         }
+    }
+
+    fn set_cc_from_24(&mut self, a: u32, b: u32) {
+        let a_signed = self.sign_extend_24(a);
+        let b_signed = self.sign_extend_24(b);
+
+        if a_signed < b_signed {
+            self.set_sw(CC_LT);
+        } else if a_signed == b_signed {
+            self.set_sw(CC_EQ);
+        } else {
+            self.set_sw(CC_GT);
+        }
+    }
+
+    fn sign_extend_24(&self, v: u32) -> i32 {
+        ((v << 8) as i32) >> 8
     }
 }
