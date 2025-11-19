@@ -382,6 +382,7 @@ impl Machine {
             self.memory.get_word(address as usize)?
         } else if n == 1 {
             let indirect = self.memory.get_word(address as usize)? as usize;
+            address = indirect as i32;
             self.memory.get_word(indirect)?
         } else {
             address as u32
@@ -472,30 +473,30 @@ impl Machine {
                 Ok(())
             }
             J => {
-                self.set_pc(value as usize);
+                self.set_pc(address as usize);
                 Ok(())
             }
             JEQ => {
                 if self.get_sw() == CC_EQ {
-                    self.set_pc(value as usize);
+                    self.set_pc(address as usize);
                 }
                 Ok(())
             }
             JGT => {
                 if self.get_sw() == CC_GT {
-                    self.set_pc(value as usize);
+                    self.set_pc(address as usize);
                 }
                 Ok(())
             }
             JLT => {
                 if self.get_sw() == CC_LT {
-                    self.set_pc(value as usize);
+                    self.set_pc(address as usize);
                 }
                 Ok(())
             }
             JSUB => {
                 self.set_l(self.get_pc());
-                self.set_pc(value as usize);
+                self.set_pc(address as usize);
                 Ok(())
             }
             LDA => {
@@ -507,8 +508,11 @@ impl Machine {
                 Ok(())
             }
             LDCH => {
+                let byte = self.memory.get_byte(address as usize)?;
+
                 let a = self.get_a();
-                self.set_a(((a & 0xFFFF00) | ((value as usize) & 0xFF)) as usize);
+                let new_a = (a & 0xFFFF00) | (byte as usize);
+                self.set_a(new_a);
                 Ok(())
             }
             LDL => {
@@ -537,8 +541,10 @@ impl Machine {
             }
             RD => {
                 let dev_no = (value & 0xFF) as u8;
-                let dev = self.get_device(dev_no).map_err(|_| Error::IoError)?;
-                let low = dev.read();
+                let low = {
+                    let dev = self.get_device(dev_no).map_err(|_| Error::IoError)?;
+                    dev.read()
+                };
                 let a = self.get_a();
                 self.set_a((a & 0xFFFF00) | (low as usize));
                 Ok(())
@@ -552,8 +558,12 @@ impl Machine {
                 Ok(())
             }
             TD => {
-                let dev = self.get_device((value & 0xFF) as u8).map_err(|_| Error::IoError)?;
-                if dev.test() {
+                let dev_no = (value & 0xFF) as u8;
+                let ready = {
+                    let dev = self.get_device(dev_no).map_err(|_| Error::IoError)?;
+                    dev.test()
+                };
+                if ready {
                     Ok(())
                 } else {
                     Err(Error::IoError)
@@ -565,17 +575,49 @@ impl Machine {
                 self.set_cc_from_24(x_val as u32, value as u32);
                 Ok(())
             }
-            WD     |
-            STA    |
-            STB    |
-            STCH   |
-            STF    |
+            WD => {
+                let write_bit = (self.get_a() & 0xFF) as u8;
+                let dev_no = (value & 0xFF) as u8;
+                {
+                    let dev = self.get_device(dev_no).map_err(|_| Error::IoError)?;
+                    dev.write(write_bit);
+                }
+                Ok(())
+            }
+            STA => {
+                self.memory.set_word(address as usize, self.get_a() as u32)?;
+                Ok(())
+            }
+            STB => {
+                self.memory.set_word(address as usize, self.get_b() as u32)?;
+                Ok(())
+            }
+            STL => {
+                self.memory.set_word(address as usize, self.get_l() as u32)?;
+                Ok(())
+            }
+            STS => {
+                self.memory.set_word(address as usize, self.get_s() as u32)?;
+                Ok(())
+            }
+            STSW => {
+                self.memory.set_word(address as usize, self.get_sw() as u32)?;
+                Ok(())
+            }
+            STT => {
+                self.memory.set_word(address as usize, self.get_t() as u32)?;
+                Ok(())
+            }
+            STX => {
+                self.memory.set_word(address as usize, self.get_x() as u32)?;
+                Ok(())
+            }
+            STCH => {
+                self.memory.set_byte(address as usize, (self.get_a() & 0xFF) as u8)?;
+                Ok(())
+            }
             STI    |
-            STL    |
-            STS    |
-            STSW   |
-            STT    |
-            STX    |
+            STF    |
             SUBF   |
             ADDF   |
             COMPF  |
