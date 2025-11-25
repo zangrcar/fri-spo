@@ -1,4 +1,6 @@
 use std::io;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 use crate::devices::{Device, FileDevice, NullDevice, StderrDevice, StdinDevice, StdoutDevice};
 use crate::memory::{Memory};
@@ -52,7 +54,9 @@ pub enum Error {
     MemOutOfRange,
     Interrupted,
     DivideByZero,
-    IoError
+    IoError,
+    InvalidHeader,
+    InvalidFilePath
 }
 
 
@@ -60,13 +64,13 @@ impl RegValue {
     fn as_usize(&self) -> usize {
         match *self {
             RegValue::Int(v) => v,
-            _ => 0,
+            RegValue::Float(_) => panic!("expected Int register, found Float"),
         }
     }
     fn as_f64(&self) -> f64 {
         match *self {
             RegValue::Float(v) => v,
-            _ => 0.0,
+            RegValue::Int(_) => panic!("expected Float register, found Int"),
         }
     }
 }
@@ -186,6 +190,137 @@ impl Machine {
         if num >= MAX_DEVICES { return Err("device index out of range"); }
         self.devices[num] = dev;
         Ok(())
+    }
+
+    pub fn load_sic_object_file(&mut self, path: &str) -> Result<(), Error> {
+        let file = File::open(path).map_err(|_| Error::IoError)?;
+        let reader = BufReader::new(file);
+
+        let mut start_addr: Option<usize> = None;
+        let mut entry_point: Option<usize> = None;
+
+        for line_res in reader.lines() {
+            let line = line_res.map_err(|_| Error::IoError)?;
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            let rec_type = line.chars().next().unwrap_or(' ');
+
+            match rec_type {
+                'H' => {
+                    if line.len() < 19 {
+                        return Err(Error::InvalidHeader);
+                    }
+                    let _name = &line[1..7];
+                    let start_hex = &line[7..13];
+                    let len_hex   = &line[13..19];
+
+                    let start = usize::from_str_radix(start_hex, 16).unwrap_or(0);
+                    let _len  = usize::from_str_radix(len_hex, 16).unwrap_or(0);
+
+                    start_addr = Some(start);
+                }
+
+                'T' => {
+                    if line.len() < 9 {
+                        continue;
+                    }
+                    let start_hex = &line[1..7];
+                    let len_hex   = &line[7..9];
+
+                    let start = usize::from_str_radix(start_hex, 16).unwrap_or(0);
+                    let length = usize::from_str_radix(len_hex, 16).unwrap_or(0);
+
+                    let data_hex = &line[9..];
+
+                    for i in 0..length {
+                        let pos = i * 2;
+                        if pos + 2 > data_hex.len() {
+                            break;
+                        }
+                        let byte_hex = &data_hex[pos..pos + 2];
+                        let byte = u8::from_str_radix(byte_hex, 16).unwrap_or(0);
+                        self.memory.set_byte(start + i, byte)?;
+                    }
+                }
+
+                'M' => {
+                }
+
+                'E' => {
+                    if line.len() >= 7 {
+                        let entry_hex = &line[1..7];
+                        let entry = usize::from_str_radix(entry_hex, 16).unwrap_or(0);
+                        entry_point = Some(entry);
+                    } else if let Some(s) = start_addr {
+                        entry_point = Some(s);
+                    }
+                }
+
+                _ => {
+                    // D, R, komentarji, ipd. – zaenkrat ignoriramo
+                }
+            }
+        }
+
+        if let Some(ep) = entry_point.or(start_addr) {
+            self.set_pc(ep);
+        } else {
+            self.set_pc(0);
+        }
+
+        Ok(())
+    }
+
+    pub fn step(&mut self) -> Result<(), Error> {
+        self.execute()
+    }
+
+    pub fn run(&mut self) -> Result<(), Error> {
+        loop {
+            match self.execute() {
+                Ok(()) => {
+                    // continue
+                }
+                Err(Error::Interrupted) => {
+                    return Ok(());
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    pub fn dump_registers(&self) {
+        println!("A  = {:06X}", self.get_a());
+        println!("X  = {:06X}", self.get_x());
+        println!("L  = {:06X}", self.get_l());
+        println!("B  = {:06X}", self.get_b());
+        println!("S  = {:06X}", self.get_s());
+        println!("T  = {:06X}", self.get_t());
+        println!("F  = {}",      self.get_f());
+        println!("PC = {:06X}", self.get_pc());
+        println!("SW = {:02X}",  self.get_sw());
+    }
+
+    pub fn dump_mem(&self, start: usize, len: usize) {
+        let end = (start + len).min(crate::memory::MEM_SIZE);
+        for addr in (start..end).step_by(16) {
+            print!("{:06X}: ", addr);
+            for off in 0..16 {
+                let a = addr + off;
+                if a < end {
+                    let byte = self.memory.get_byte(a).unwrap_or(0);
+                    print!("{:02X} ", byte);
+                } else {
+                    print!("   ");
+                }
+            }
+            println!();
+        }
     }
 
     pub fn not_implemented(&self, mnemonic: String) {
@@ -406,6 +541,7 @@ impl Machine {
             self.memory.get_word(address as usize)?
         } else if n == 1 {
             let indirect = self.memory.get_word(address as usize)? as usize;
+            address = indirect as u32;
             self.memory.get_word(indirect)?
         } else {
             address
@@ -629,7 +765,8 @@ impl Machine {
     }
 
     fn get_instrution_type1(&self, opcode: u8) -> Result<InstructuionType, Error> {
-        match opcode {
+        let op = opcode & 0xFC;
+        match op {
             FIX    |
             FLOAT  |
             HIO    |
