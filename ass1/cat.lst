@@ -1,0 +1,15 @@
+00000            cat   START   0    
+00000  4B2003          JSUB    beri    
+                  
+00003  3F2FFD    halt  J       halt    
+                  
+00006  D90000    beri  RD      #0    
+00009  DD0001          WD      #1    
+0000C  05000A          LDX     #10    
+0000F  A010            COMPR   X,A    
+00011  332003          JEQ     done    
+00014  3F2FEF          J       beri    
+                  
+00017  4F0000    done  RSUB        
+                  
+0001A                  END     cat    

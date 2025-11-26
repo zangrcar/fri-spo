@@ -198,6 +198,8 @@ impl Machine {
         let mut start_addr: Option<usize> = None;
         let mut entry_point: Option<usize> = None;
 
+        let load_addr: usize = 0;
+
         for line_res in reader.lines() {
             let line = line_res.map_err(|_| Error::IoError)?;
             let line = line.trim();
@@ -229,10 +231,13 @@ impl Machine {
                     let start_hex = &line[1..7];
                     let len_hex   = &line[7..9];
 
-                    let start = usize::from_str_radix(start_hex, 16).unwrap_or(0);
+                    let obj_start = usize::from_str_radix(start_hex, 16).unwrap_or(0);
                     let length = usize::from_str_radix(len_hex, 16).unwrap_or(0);
 
                     let data_hex = &line[9..];
+
+                    let base = start_addr.unwrap_or(0);
+                    let phys_start = load_addr + (obj_start - base);
 
                     for i in 0..length {
                         let pos = i * 2;
@@ -241,20 +246,56 @@ impl Machine {
                         }
                         let byte_hex = &data_hex[pos..pos + 2];
                         let byte = u8::from_str_radix(byte_hex, 16).unwrap_or(0);
-                        self.memory.set_byte(start + i, byte)?;
+                        self.memory.set_byte(phys_start + i, byte)?;
                     }
                 }
 
                 'M' => {
+                    if line.len() < 10 {
+                        continue;
+                    }
+
+                    let loc_hex = &line[1..7];
+                    let len_hex = &line[7..9];
+                    let op      = line.chars().nth(9).unwrap_or('+');
+
+                    let m_loc  = usize::from_str_radix(loc_hex, 16).unwrap_or(0);
+                    let nibbles = u8::from_str_radix(len_hex, 16).unwrap_or(0);
+
+                    let base = start_addr.unwrap_or(0);
+                    let reloc = (load_addr as isize) - (base as isize);
+
+                    if nibbles == 5 {
+                        let phys_loc = load_addr + (m_loc - base);
+
+                        let mut word = self.memory.get_word(phys_loc)?;
+
+                        let high4  = word & 0xF00000;
+                        let field  = word & 0x0F_FFFF;
+
+                        let delta = (reloc as i32) as u32;
+
+                        let new_field = match op {
+                            '+' => field.wrapping_add(delta) & 0x0F_FFFF,
+                            '-' => field.wrapping_sub(delta) & 0x0F_FFFF,
+                            _   => field,
+                        };
+
+                        word = high4 | new_field;
+                        self.memory.set_word(phys_loc, word)?;
+                    }
                 }
 
                 'E' => {
                     if line.len() >= 7 {
                         let entry_hex = &line[1..7];
                         let entry = usize::from_str_radix(entry_hex, 16).unwrap_or(0);
-                        entry_point = Some(entry);
+                        let base = start_addr.unwrap_or(0);
+                        entry_point = Some(load_addr + (entry - base));
+
                     } else if let Some(s) = start_addr {
-                        entry_point = Some(s);
+                        let base = s;
+                        entry_point = Some(load_addr + (base - base));
                     }
                 }
 
@@ -681,6 +722,7 @@ impl Machine {
                 };
                 let a = self.get_a();
                 self.set_a((a & 0xFFFF00) | (low as usize));
+                println!("{}", self.get_a());
                 Ok(())
             }
             RSUB => {
@@ -688,6 +730,7 @@ impl Machine {
                 Ok(())
             }
             SUB => {
+                println!("{}, {}", self.get_a(), value);
                 self.set_a(self.get_a() - value as usize);
                 Ok(())
             }
