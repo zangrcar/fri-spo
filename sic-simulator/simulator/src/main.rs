@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .unwrap_or(0x40);
                     m.dump_mem(start, len);
                 }
-                "quit" | "exit" => break,
+                "quit" | "exit" => return Ok(()),
                 _ => {
                     println!("Neznan ukaz: {cmd}");
                 }
