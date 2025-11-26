@@ -448,7 +448,8 @@ impl Machine {
             ADDR => {
                 let reg_val1 = self.get_reg(reg1)?.as_usize();
                 let reg_val2 = self.get_reg(reg2)?.as_usize();
-                self.set_reg(reg2, RegValue::Int(reg_val1 + reg_val2))?;
+                let res = reg_val2.wrapping_add(reg_val1) & 0x00FF_FFFF;
+                self.set_reg(reg2, RegValue::Int(res))?;
                 Ok(())
             }
             CLEAR => {
@@ -508,15 +509,16 @@ impl Machine {
             SUBR => {
                 let reg_val1 = self.get_reg(reg1)?.as_usize();
                 let reg_val2 = self.get_reg(reg2)?.as_usize();
-                self.set_reg(reg2, RegValue::Int(reg_val2-reg_val1))?;
+                let res = reg_val2.wrapping_sub(reg_val1)& 0x00FF_FFFF;
+                self.set_reg(reg2, RegValue::Int(res))?;
                 Ok(())
             }
             SVC  => Err(Error::Interrupted),
             TIXR => {
-                let reg_val = self.get_reg(reg1)?.as_usize();
-                self.set_x(self.get_x() + 1);
-                let x_val = self.get_x();
-                self.set_cc_from_24(x_val as u32, reg_val as u32);
+                let r = self.get_reg(reg1)?.as_usize();
+                let new_x = (self.get_x().wrapping_add(1)) & 0x00FF_FFFF;
+                self.set_x(new_x);
+                self.set_cc_from_24(new_x as u32, r as u32);
                 Ok(())
             }
             _ => Err(Error::InvalidInstruction)
@@ -629,7 +631,9 @@ impl Machine {
     fn exec_f3_f4_sic(&mut self, opcode: u8, address: u32, value: u32) -> Result<(), Error> {
         match opcode {
             ADD => {
-                self.set_a(self.get_a() + value as usize);
+                let a = self.get_a();
+                let res = a.wrapping_add(value as usize) & 0x00FF_FFFF;
+                self.set_a(res);
                 Ok(())
             }
             AND => {
@@ -707,7 +711,9 @@ impl Machine {
                 Ok(())
             }
             MUL => {
-                self.set_a(self.get_a() * (value as usize));
+                let a = self.get_a();
+                let res = a.wrapping_mul(value as usize) & 0x00FF_FFFF;
+                self.set_a(res);
                 Ok(())
             }
             OR => {
@@ -722,7 +728,6 @@ impl Machine {
                 };
                 let a = self.get_a();
                 self.set_a((a & 0xFFFF00) | (low as usize));
-                println!("{}", self.get_a());
                 Ok(())
             }
             RSUB => {
@@ -730,8 +735,9 @@ impl Machine {
                 Ok(())
             }
             SUB => {
-                println!("{}, {}", self.get_a(), value);
-                self.set_a(self.get_a() - value as usize);
+                let a = self.get_a();
+                let res = a.wrapping_sub(value as usize)& 0x00FF_FFFF;
+                self.set_a(res);
                 Ok(())
             }
             TD => {
@@ -747,9 +753,9 @@ impl Machine {
                 }
             }
             TIX => {
-                self.set_x(self.get_x() + 1);
-                let x_val = self.get_x();
-                self.set_cc_from_24(x_val as u32, value as u32);
+                let new_x = (self.get_x().wrapping_add(1)) & 0x00FF_FFFF;
+                self.set_x(new_x);
+                self.set_cc_from_24(new_x as u32, value as u32);
                 Ok(())
             }
             WD => {

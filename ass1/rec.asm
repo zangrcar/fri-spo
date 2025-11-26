@@ -1,7 +1,7 @@
 REC     START 0
         JSUB SINIT
 LOOP    JSUB READ   . reads the value
-        +LDT #100000
+        LDT #1000
         COMPR T, S
         JEQ HALT    . if value is 0 (signaling EOF) end programme
         COMP #10    . avoid double newlines
@@ -49,7 +49,7 @@ RDLOOP  TD #0xFA
         J RDLOOP    . ponovimo
         
 
-ENDPRG  +LDS #100000
+ENDPRG  LDS #1000
         RSUB
 
 

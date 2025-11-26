@@ -1,41 +1,41 @@
 ***** Section <default> *****
-Stats: size=15430  blocks=15430  symbols=29  literals=0  relocations=1
+Stats: size=15428  blocks=15428  symbols=29  literals=0  relocations=1
 Blocks
     name        start   size  #ins #dir #sto
-    <default>   00000  03C46   140    5    4
+    <default>   00000  03C44   140    5    4
 Symbols
     name        hex       dec  scope     kind      type      description
-    CALC     000089       137  local     relative  code      label
-    ENDPRG   00007F       127  local     relative  code      label
-    HALT     000036        54  local     relative  code      label
-    IS0      0000DF       223  local     relative  code      label
-    LAST0    0000F4       244  local     relative  data      label
+    CALC     000087       135  local     relative  code      label
+    ENDPRG   00007E       126  local     relative  code      label
+    HALT     000035        53  local     relative  code      label
+    IS0      0000DD       221  local     relative  code      label
+    LAST0    0000F2       242  local     relative  data      label
     LOOP     000003         3  local     relative  code      label
-    LOOPL0   0000C0       192  local     relative  code      label
-    NOTL0    0000DC       220  local     relative  code      label
-    NUM      000086       134  local     relative  data      label
-    PNL      000030        48  local     relative  code      label
-    PRINT0   000150       336  local     relative  code      label
-    PRNTNL   00016B       363  local     relative  code      label
-    RDLOOP   00005A        90  local     relative  code      label
-    READ     00003C        60  local     relative  code      label
+    LOOPL0   0000BE       190  local     relative  code      label
+    NOTL0    0000DA       218  local     relative  code      label
+    NUM      000084       132  local     relative  data      label
+    PNL      00002F        47  local     relative  code      label
+    PRINT0   00014E       334  local     relative  code      label
+    PRNTNL   000169       361  local     relative  code      label
+    RDLOOP   000059        89  local     relative  code      label
+    READ     00003B        59  local     relative  code      label
     REC      000000         0  exported  relative  code      label
-    RET      000039        57  local     relative  code      label
-    RETCLC   0000A5       165  local     relative  code      label
-    RVLOOP   000100       256  local     relative  code      label
-    RVRSE    0000FA       250  local     relative  code      label
-    RVSNUM   000128       296  local     relative  data      label
-    SETL0    0000B4       180  local     relative  code      label
-    SINIT    000174       372  local     relative  code      label
-    SPOP     000196       406  local     relative  code      label
-    SPUSH    000184       388  local     relative  code      label
-    STK      0001AB       427  local     relative  data      label
-    STKP     0001A8       424  local     relative  data      label
-    SUBNUM   0000F7       247  local     relative  data      label
-    TEMP     003C43     15427  local     relative  data      label
-    WRITE    00012B       299  local     relative  code      label
+    RET      000038        56  local     relative  code      label
+    RETCLC   0000A3       163  local     relative  code      label
+    RVLOOP   0000FE       254  local     relative  code      label
+    RVRSE    0000F8       248  local     relative  code      label
+    RVSNUM   000126       294  local     relative  data      label
+    SETL0    0000B2       178  local     relative  code      label
+    SINIT    000172       370  local     relative  code      label
+    SPOP     000194       404  local     relative  code      label
+    SPUSH    000182       386  local     relative  code      label
+    STK      0001A9       425  local     relative  data      label
+    STKP     0001A6       422  local     relative  data      label
+    SUBNUM   0000F5       245  local     relative  data      label
+    TEMP     003C41     15425  local     relative  data      label
+    WRITE    000129       297  local     relative  code      label
 Literals
     label   definition
 Relocations
     address length flag symbol
-    00178        5
+    00176        5
