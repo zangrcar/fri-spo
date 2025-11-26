@@ -5,7 +5,7 @@ mod machine;
 mod devices;
 mod opcodes;
 
-use machine::{Machine, Error};
+use machine::{Machine};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut m = Machine::new();
@@ -16,10 +16,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut line = String::new();
     io::stdin().read_line(&mut line)?;
-    let path = line.trim();
+    let filename = line.trim();
+    let path = format!("programs/{}", filename);
 
     if !path.is_empty() {
-        match m.load_sic_object_file(path) {
+        match m.load_sic_object_file(&path) {
             Ok(()) => println!("Objektna datoteka naložena, PC = {:06X}", m.get_pc()),
             Err(e) => println!("Napaka pri nalaganju: {:?}", e),
         }

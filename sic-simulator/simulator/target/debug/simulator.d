@@ -1,1 +1,1 @@
-C:\fri\spo\fri-spo\sic-simulator\simulator\target\debug\simulator.exe: C:\fri\spo\fri-spo\sic-simulator\simulator\src\main.rs
+C:\fri\spo\fri-spo\sic-simulator\simulator\target\debug\simulator.exe: C:\fri\spo\fri-spo\sic-simulator\simulator\src\devices.rs C:\fri\spo\fri-spo\sic-simulator\simulator\src\lib.rs C:\fri\spo\fri-spo\sic-simulator\simulator\src\machine.rs C:\fri\spo\fri-spo\sic-simulator\simulator\src\main.rs C:\fri\spo\fri-spo\sic-simulator\simulator\src\memory.rs C:\fri\spo\fri-spo\sic-simulator\simulator\src\opcodes.rs

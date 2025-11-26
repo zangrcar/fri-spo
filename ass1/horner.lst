@@ -1,0 +1,18 @@
+00000            HORNER  START   0    
+                  . POLINOM X⁴ + 2X³ + 3X² + 4X + 5
+                  
+00000  03201B            LDA     X    
+00003  190002            ADD     #2    
+00006  232015            MUL     X    
+00009  190003            ADD     #3    
+0000C  23200F            MUL     X    
+0000F  190004            ADD     #4    
+00012  232009            MUL     X    
+00015  190005            ADD     #5    
+00018  0F2006            STA     RESULT    
+                  
+0001B  3F2FFD    HALT    J       HALT    
+                  
+                  . podatki
+0001E  000002    X       WORD    2    
+00021  000000    RESULT  RESW    1    

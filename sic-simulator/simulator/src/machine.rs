@@ -56,7 +56,6 @@ pub enum Error {
     DivideByZero,
     IoError,
     InvalidHeader,
-    InvalidFilePath
 }
 
 
@@ -134,7 +133,7 @@ impl Machine {
     pub fn set_t(&mut self, v: usize) { self.t = mask24(v); }
 
     pub fn get_f(&self) -> f64 { self.f }
-    pub fn set_f(&mut self, v: f64) { self.f = v; }
+    // pub fn set_f(&mut self, v: f64) { self.f = v; }
 
     pub fn get_pc(&self) -> usize { self.pc }
     pub fn set_pc(&mut self, v: usize) { self.pc = mask24(v); }
@@ -186,11 +185,11 @@ impl Machine {
         Ok(self.devices[idx].as_mut())
     }
 
-    pub fn set_device(&mut self, num: usize, dev: Box<dyn Device>) -> Result<(), &'static str> {
-        if num >= MAX_DEVICES { return Err("device index out of range"); }
-        self.devices[num] = dev;
-        Ok(())
-    }
+    // pub fn set_device(&mut self, num: usize, dev: Box<dyn Device>) -> Result<(), &'static str> {
+    //     if num >= MAX_DEVICES { return Err("device index out of range"); }
+    //     self.devices[num] = dev;
+    //     Ok(())
+    // }
 
     pub fn load_sic_object_file(&mut self, path: &str) -> Result<(), Error> {
         let file = File::open(path).map_err(|_| Error::IoError)?;
@@ -280,9 +279,16 @@ impl Machine {
 
     pub fn run(&mut self) -> Result<(), Error> {
         loop {
+            let pc_before = self.get_pc();
             match self.execute() {
                 Ok(()) => {
-                    // continue
+                    if pc_before == self.get_pc() {
+                        let opcode = (self.memory.get_byte(pc_before)? & 0xFC) as u8;
+
+                        if opcode == J {
+                            return Ok(());
+                        }
+                    }
                 }
                 Err(Error::Interrupted) => {
                     return Ok(());
@@ -323,17 +329,9 @@ impl Machine {
         }
     }
 
-    pub fn not_implemented(&self, mnemonic: String) {
-        println!("{} is not implemented!", mnemonic);
-    }
-
     pub fn invalid_opcode(&self, opcode: u8) -> Error {
         println!("opcode {} is invalid!", opcode);
         Error::InvalidOpcode
-    }
-
-    pub fn invalid_addressing(&self) {
-        println!("Invalid addressing was used!");
     }
 
     pub fn fetch(&mut self) -> Result<u8, Error> {
