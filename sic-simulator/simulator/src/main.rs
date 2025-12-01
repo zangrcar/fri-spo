@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     'reload: loop {
         let mut m = Machine::new();
 
-        println!("Vnesi ime SIC objektne datoteke (.obj) iz mape programs:");
+        println!("Vnesi ime SIC objektne datoteke (.dev / .obj) iz mape programs:");
         print!("file> ");
         io::stdout().flush()?;
 
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("SIC/XE emulator");
         println!("Ukazi:");
         println!("  step              - izvedi en ukaz");
-        println!("  run               - izvajaj do konca (SVC / error)");
+        println!("  run               - izvajaj do konca");
         println!("  regs              - izpiši registre");
         println!("  mem <addr> <len>  - izpiši pomnilnik");
         println!("  quit              - izhod");
