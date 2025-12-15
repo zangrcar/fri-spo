@@ -1,12 +1,12 @@
 ***** Section <default> *****
-Stats: size=21  blocks=21  symbols=4  literals=0  relocations=1
+Stats: size=24  blocks=24  symbols=4  literals=0  relocations=1
 Blocks
     name        start   size  #ins #dir #sto
-    <default>   003E8  00015     4    3    1
+    <default>   003E8  00018     5    5    1
 Symbols
     name        hex       dec  scope     kind      type      description
-    ALPHA    0003F4      1012  local     relative  data      label
-    BETA     0003F7      1015  local     relative  data      label
+    ALPHA    0003F7      1015  local     relative  data      label
+    BETA     0003FA      1018  local     relative  data      label
     FIRST    0003E8      1000  local     relative  code      label
     TEST     0003E8      1000  exported  relative  code      label
 Literals
