@@ -1,0 +1,8 @@
+003E8            TEST   START   1000    
+003E8  032009    FIRST  LDA     ALPHA    
+003EB  690003           LDB     #3    
+003EE  9003             ADDR    A,B    
+003F0  7B1003F7        +STB     BETA    
+003F4  000001    ALPHA  WORD    1    
+003F7  00....00  BETA   RESW    2    
+003FD                   END     FIRST    
