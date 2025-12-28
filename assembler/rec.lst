@@ -1,0 +1,195 @@
+000000          REC     START 0
+000000  4B216F          JSUB SINIT
+000003  4B2035  LOOP    JSUB READ   . reads the value
+000006  7503E8          LDT #1000
+000009  A054            COMPR T, S
+00000B  332027          JEQ HALT    . if value is 0 (signaling EOF) end programme
+00000E  29000A          COMP #10    . avoid double newlines
+000011  332FEF          JEQ LOOP
+000014  03206D          LDA NUM     . parameter for recursive function will be in A
+000017  4B206D          JSUB CALC   . else calculate value
+00001A  0F2067          STA NUM     . result is stored in reg A
+00001D  4B2092          JSUB SETL0  . I have a problem if last digit is 0, so I need to set a flag if it is
+000020  4B20D5          JSUB RVRSE  . reverse NUM for easier print
+000023  4B2103          JSUB WRITE  . and write value
+000026  0320C9          LDA LAST0   . check I we need to print extra 0
+000029  290000          COMP #0
+00002C  37211F          JGT PRINT0
+00002F  4B2137  PNL     JSUB PRNTNL . print new line
+000032  3F2FCE          J LOOP      . repeat until 0
+000035          
+000035          
+000035  3F2FFD  HALT    J HALT
+000038          
+000038  4F0000  RET   RSUB
+00003B          
+00003B          . rutina za branje
+00003B  E100FA  READ    TD #0xFA
+00003E  D900FA          RD #0xFA    . preberi prvi char
+000041  29000A          COMP #10    . primerjamo z \n
+000044  332FF1          JEQ RET
+000047  29000D          COMP #13    . primerjamo z carriage return
+00004A  332FEB          JEQ RET
+00004D  1D0030          SUB #48
+000050  290000          COMP #0     . če je 0 pomeni konec programa
+000053  332028          JEQ ENDPRG
+000056  0F202B          STA NUM     . shranimo
+000059  E100FA  RDLOOP  TD #0xFA
+00005C  D900FA          RD #0xFA    . preberemo naslednji bit
+00005F  29000A          COMP #10    . primerjamo z \n
+000062  332FD3          JEQ RET
+000065  29000D          COMP #13    . primerjamo z carriage return
+000068  332FCD          JEQ RET
+00006B  1D0030          SUB #48
+00006E  AC03            RMO A, B     
+000070  032011          LDA NUM     
+000073  21000A          MUL #10
+000076  9030            ADDR B, A   . zmnožimo in seštejemo število
+000078  0F2009          STA NUM     . shranimo ga nazaj v NUM
+00007B  3F2FDB          J RDLOOP    . ponovimo
+00007E                  
+00007E          
+00007E  6D03E8  ENDPRG  LDS #1000
+000081  4F0000          RSUB
+000084          
+000084          
+000084          . podatki za branje
+000084          NUM     RESW    1
+000087          
+000087          . rutina za račun
+000087  16211C  CALC    STL @STKP
+00008A  4B20F5          JSUB SPUSH
+00008D  7A2116          STB @STKP
+000090  4B20EF          JSUB SPUSH
+000093          
+000093  290002          COMP #2
+000096  3B200A          JLT RETCLC
+000099  AC03            RMO A, B
+00009B  1D0001          SUB #1
+00009E  4B2FE6          JSUB CALC
+0000A1  9830            MULR B, A
+0000A3          
+0000A3  4B20EE  RETCLC  JSUB SPOP
+0000A6  6A20FD          LDB @STKP
+0000A9  4B20E8          JSUB SPOP
+0000AC  0A20F7          LDL @STKP
+0000AF  3F2F86          J RET
+0000B2          
+0000B2          
+0000B2          
+0000B2          . rutina za preverjanje zadnje števke
+0000B2  010000  SETL0   LDA #0
+0000B5  0F203A          STA LAST0
+0000B8  032FC9          LDA NUM
+0000BB  0F2037          STA SUBNUM
+0000BE  032034  LOOPL0  LDA SUBNUM
+0000C1  6B2031          LDB SUBNUM
+0000C4  25000A          DIV #10
+0000C7  21000A          MUL #10
+0000CA  9430            SUBR B, A
+0000CC  6D000A          LDS #10
+0000CF  9C43            DIVR S, B
+0000D1  7B2021          STB SUBNUM
+0000D4  290000          COMP #0
+0000D7  332003          JEQ IS0
+0000DA  3F2F5B  NOTL0   J RET
+0000DD          
+0000DD  032FA4  IS0     LDA NUM
+0000E0  290000          COMP #0
+0000E3  332FF4          JEQ NOTL0   . if the last digit is zero and is the only digit, we do not need to write it!
+0000E6  032009          LDA LAST0
+0000E9  190001          ADD #1
+0000EC  0F2003          STA LAST0
+0000EF  3F2FCC          J LOOPL0
+0000F2          
+0000F2          
+0000F2          . podatek o zadnji cifri: 0 -> zadnja cifra ni 1 -> zadnja cifra je 0
+0000F2  000000  LAST0   WORD 0
+0000F5  000000  SUBNUM  WORD 0
+0000F8          
+0000F8          . rutina za obračanje številke
+0000F8  010000  RVRSE   LDA #0      
+0000FB  0F2028          STA RVSNUM  . izbriši prejšno vrednost
+0000FE  032F83  RVLOOP  LDA NUM     . naloži NUM
+000101  290000          COMP #0     . če je 0 smo že obrnili
+000104  332F31          JEQ RET     . vrni
+000107  6F2F7A          LDS NUM     
+00010A  25000A          DIV #10
+00010D  21000A          MUL #10
+000110  9404            SUBR A, S   . zgornje 4 so za računanje mod10, shrani se v S
+000112  25000A          DIV #10     . A shrani preostale števke NUM
+000115  0F2F6C          STA NUM
+000118  03200B          LDA RVSNUM  . naloži obrnjeno številko in ji dodaj S na konec
+00011B  21000A          MUL #10
+00011E  9040            ADDR S, A
+000120  0F2003          STA RVSNUM
+000123  3F2FD8          J RVLOOP    . ponovi vajo
+000126          
+000126          
+000126          . podatki za reverse
+000126          RVSNUM  RESW 1
+000129          
+000129          
+000129          . rutina za izpis
+000129  032FFA  WRITE   LDA RVSNUM  . podobno kot obračanje, samo ne shranjujemo ampak izpisujemo števke
+00012C  290000          COMP #0
+00012F  332F06          JEQ RET
+000132  6B2FF1          LDB RVSNUM
+000135  25000A          DIV #10
+000138  21000A          MUL #10
+00013B  9403            SUBR A, B
+00013D  25000A          DIV #10
+000140  0F2FE3          STA RVSNUM
+000143  AC30            RMO B, A
+000145  190030          ADD #48
+000148  DD0001          WD #1
+00014B  3F2FDB          J WRITE
+00014E          
+00014E          
+00014E          . rutina za izpis 0
+00014E  010030  PRINT0  LDA #0x30   . ASCII FOR 0
+000151  DD0001          WD #1
+000154  010000          LDA #0
+000157  032F98          LDA LAST0
+00015A  1D0001          SUB #1
+00015D  0F2F92          STA LAST0
+000160  290000          COMP #0
+000163  372FE8          JGT PRINT0
+000166  3F2EC6          J PNL
+000169          
+000169          
+000169          . rutina za izpis \n
+000169  01000A  PRNTNL  LDA #10
+00016C  DD0001          WD #1
+00016F  3F2EC6          J RET
+000172          
+000172          . rutine za sklad
+000172          
+000172  0F2034  SINIT   STA TEMP     . inicializira stkp
+000175  011001          +LDA #STK
+000179  0F202A          STA STKP
+00017C  03202A          LDA TEMP
+00017F  4F0000          RSUB
+000182          
+000182  0F2024  SPUSH   STA TEMP     . poveca stkp za 3
+000185  03201E          LDA STKP
+000188  190003          ADD #3
+00018B  0F2018          STA STKP
+00018E  032018          LDA TEMP
+000191  4F0000          RSUB
+000194          
+000194  0F2012  SPOP    STA TEMP     . zmanjsa stkp za 3
+000197  03200C          LDA STKP
+00019A  1D0003          SUB #3
+00019D  0F2006          STA STKP
+0001A0  032006          LDA TEMP
+0001A3  4F0000          RSUB
+0001A6          
+0001A6          
+0001A6          
+0001A6          .podatki za sklad 
+0001A6  000000  STKP    WORD 0
+0001A9          TEMP    RESW    1   .temp za odlaganje vrednosti registrov
+0001AC          STK     RESW 5000
+003C44          
+003C44                  END REC
