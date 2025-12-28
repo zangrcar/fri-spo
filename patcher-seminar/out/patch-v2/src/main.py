@@ -9,3 +9,4 @@ def new_feature() -> str:
 if __name__ == "__main__":
     print(shout(greet("world")))
     print(new_feature())
+# corruption

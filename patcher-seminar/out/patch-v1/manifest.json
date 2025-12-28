@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "target_root": "project",
+  "files": [
+    {
+      "path": "config.yaml",
+      "size": 32,
+      "sha256": "496e401e901166284aca17782d651a32061bff0b572b2a37731d082327ce14e2",
+      "mode": "file"
+    },
+    {
+      "path": "README.md",
+      "size": 33,
+      "sha256": "7e768723698631cd3477acbc0745fa07cdfdf2deddd86412617cfa238bcb763e",
+      "mode": "file"
+    },
+    {
+      "path": "data/sample.txt",
+      "size": 16,
+      "sha256": "aa84016fd31d05c51eca76066d0868523980229fbb2c652f513bb848be6db9d9",
+      "mode": "file"
+    },
+    {
+      "path": "src/main.py",
+      "size": 151,
+      "sha256": "b75e69b2b0fe165dd11c4e0f20b1db3cc21a68051ca5b3e9efdbacd142d1f231",
+      "mode": "file"
+    },
+    {
+      "path": "src/util.py",
+      "size": 53,
+      "sha256": "be026286a7a3bed2666e5a58f29e73bef1cb9e4ff67788d18d90eabdab8118d9",
+      "mode": "file"
+    }
+  ]
+}
