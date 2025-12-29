@@ -1,5 +1,8 @@
+"""Public package interface exposing hashing, manifest, build, and apply helpers."""
+
 __version__ = "1.0.0"
 
+# Re-export frequently used helpers so consumers can import directly from patcher.
 from .hashing import file_sha256
 from .manifest import Manifest, ManifestEntry
 from .builder import make_patch, build_manifest
