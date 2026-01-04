@@ -1,9 +1,5 @@
 # patcher-walkthrough.ps1
 
-# 0) Ensure both trees are Python packages (needed for `python -m src.main`)
-# New-Item -ItemType File simple-project\src\__init__.py -Force | Out-Null
-# New-Item -ItemType File simple-project-target\src\__init__.py -Force | Out-Null
-
 # 1) Make your changes for the new version in the SOURCE tree:
 #    edit files under simple-project\src\ (main.py, feature.py, util.py) or README/config.
 #    Do NOT touch simple-project-target; that stays as the old install we will patch.
